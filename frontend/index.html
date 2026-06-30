@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blockchain Handbook Labs - Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { font-size: 28px; margin-bottom: 8px; color: #f0f6fc; }
+        .subtitle { color: #8b949e; margin-bottom: 30px; }
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card h2 { font-size: 18px; margin-bottom: 16px; color: #f0f6fc; }
+        .card h2 .badge {
+            font-size: 12px;
+            background: #238636;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-left: 10px;
+        }
+        .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+        input, textarea, button {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: 14px;
+            flex: 1;
+            min-width: 200px;
+        }
+        button {
+            background: #238636;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 0 0 auto;
+            transition: background 0.2s;
+        }
+        button:hover { background: #2ea043; }
+        button.secondary { background: #1f6feb; }
+        button.secondary:hover { background: #388bfd; }
+        button.danger { background: #da3633; }
+        button.danger:hover { background: #f85149; }
+        .output {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            word-break: break-all;
+            min-height: 50px;
+            color: #58a6ff;
+        }
+        .status { color: #8b949e; font-size: 13px; margin-top: 8px; }
+        .status.success { color: #3fb950; }
+        .status.error { color: #f85149; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Blockchain Handbook Labs</h1>
+        <p class="subtitle">Hands-on exercises from the "Handbook of Blockchain Technology Development"</p>
+
+        <!-- ====== 状态栏 ====== -->
+        <div class="card">
+            <div id="walletStatus" class="status">⏳ Please connect MetaMask</div>
+            <button id="connectBtn" class="secondary" style="margin-top:10px;">Connect Wallet</button>
+        </div>
+
+        <div class="grid-2">
+            <!-- ====== 模块1: SHA-256 哈希 ====== -->
+            <div class="card">
+                <h2>📝 SHA-256 Hash <span class="badge">Phase 1</span></h2>
+                <div class="row">
+                    <input type="text" id="hashInput" placeholder="Enter text..." value="Hello, Blockchain!" />
+                </div>
+                <button id="hashBtn">Generate hash</button>
+                <div id="hashOutput" class="output">Waiting for input...</div>
+                <div id="hashStatus" class="status"></div>
+            </div>
+
+            <!-- ====== 模块2: NFT 交互 ====== -->
+            <div class="card">
+                <h2>🖼️ Mint NFT <span class="badge">Phase 3</span></h2>
+                <div class="row">
+                    <input type="text" id="nftHash" placeholder="Enter SHA-256 hash..." />
+                </div>
+                <button id="mintBtn">Mint NFT</button>
+                <div id="nftOutput" class="output">Waiting...</div>
+                <div id="nftStatus" class="status"></div>
+            </div>
+        </div>
+
+        <!-- ====== 模块3: DAO 投票 ====== -->
+        <div class="card">
+            <h2>🗳️ DAO Voting <span class="badge">Phase 3</span></h2>
+            <div class="row">
+                <input type="text" id="proposalInput" placeholder="Proposal description..." style="flex:2;" />
+                <button id="createProposalBtn" class="secondary">Create Proposal</button>
+            </div>
+            <div class="row">
+                <input type="number" id="proposalIdInput" placeholder="Proposal ID" style="flex:1;" />
+                <button id="voteForBtn" style="background:#238636;">Vote For</button>
+                <button id="voteAgainstBtn" class="danger">Vote Against</button>
+                <button id="executeBtn" class="secondary">Execute</button>
+            </div>
+            <div id="daoOutput" class="output">等待操作...</div>
+            <div id="daoStatus" class="status"></div>
+        </div>
+
+        <!-- ====== 模块4: 部署信息 ====== -->
+        <div class="card">
+            <h2>📋 Deployment Info</h2>
+            <div id="deployInfo" class="output" style="font-size:12px; color:#8b949e;">
+                Please run deploy.js to deploy contracts first
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== Ethers.js CDN ====== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.8.0/ethers.umd.min.js">
+    </script>
+
+    <script>
+        // ============================================================
+        //  配置 - 支持从 deploy-info.json 动态读取（部署后更新）
+        // ============================================================
+        const CONFIG = {
+            nftAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+            daoAddress: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+        };
+
+        // 尝试从部署产物覆盖配置并显示部署信息
+        (async function loadDeployInfo() {
+            try {
+                const resp = await fetch('/deploy-info.json');
+                if (!resp.ok) throw new Error('no deploy-info.json');
+                const info = await resp.json();
+                if (info.nftAddress) CONFIG.nftAddress = info.nftAddress;
+                if (info.daoAddress) CONFIG.daoAddress = info.daoAddress;
+                document.getElementById('deployInfo').textContent = JSON.stringify(info, null, 2);
+            } catch (e) {
+                document.getElementById('deployInfo').textContent = 'deploy-info.json 未找到，使用内置地址。';
+            }
+        })();
+
+        // ============================================================
+        //  全局状态
+        // ============================================================
+        let signer = null;
+        let nftContract = null;
+        let daoContract = null;
+
+        // ============================================================
+        //  ABI 定义（简化版，仅包含需要调用的函数）
+        // ============================================================
+        const NFT_ABI = [
+            "function mintNFT(address to, string memory hash) external",
+            "function getTokenHash(uint256 tokenId) view returns (string memory)",
+            "function ownerOf(uint256 tokenId) view returns (address)",
+            "function balanceOf(address owner) view returns (uint256)"
+        ];
+
+        const DAO_ABI = [
+            "function createProposal(string memory description) external",
+            "function vote(uint256 proposalId, bool support) external",
+            "function executeProposal(uint256 proposalId) external",
+            "function getProposal(uint256 proposalId) view returns (tuple(uint256 id, address proposer, string description, uint256 forVotes, uint256 againstVotes, uint256 startTime, uint256 endTime, uint8 state, bool executed))",
+            "function grantVotingPower(address voter, uint256 power) external",
+            "function votingPower(address) view returns (uint256)"
+        ];
+
+        // ============================================================
+        //  连接钱包
+        // ============================================================
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    alert('Please install MetaMask');
+                    return;
+                }
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+                const address = await signer.getAddress();
+
+                nftContract = new ethers.Contract(CONFIG.nftAddress, NFT_ABI, signer);
+                daoContract = new ethers.Contract(CONFIG.daoAddress, DAO_ABI, signer);
+
+                document.getElementById('walletStatus').innerHTML =
+                    `✅ Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
+                document.getElementById('walletStatus').className = 'status success';
+                document.getElementById('connectBtn').textContent = 'Connected';
+
+                // 检查投票权
+                try {
+                    const power = await daoContract.votingPower(address);
+                    document.getElementById('walletStatus').innerHTML +=
+                        ` | Voting power: ${power.toString()}`;
+                } catch (e) { /* ignore */ }
+
+            } catch (err) {
+                document.getElementById('walletStatus').innerHTML =
+                    `❌ 连接失败: ${err.message}`;
+                document.getElementById('walletStatus').className = 'status error';
+            }
+        }
+
+        // ============================================================
+        //  1. SHA-256 哈希（纯前端实现）
+        // ============================================================
+        async function generateHash() {
+            const input = document.getElementById('hashInput').value;
+            if (!input) {
+                document.getElementById('hashStatus').textContent = '⚠️ Please enter text';
+                document.getElementById('hashStatus').className = 'status error';
+                return;
+            }
+
+            try {
+                // 使用 Web Crypto API
+                const encoder = new TextEncoder();
+                const data = encoder.encode(input);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                document.getElementById('hashOutput').textContent = hashHex;
+                document.getElementById('hashStatus').textContent =
+                    `✅ Hash generated | Input length: ${input.length} characters`;
+                document.getElementById('hashStatus').className = 'status success';
+
+                // 自动填充到 NFT 输入框
+                document.getElementById('nftHash').value = hashHex;
+
+            } catch (err) {
+                document.getElementById('hashStatus').textContent = `❌ ${err.message}`;
+                document.getElementById('hashStatus').className = 'status error';
+            }
+        }
+
+        // ============================================================
+        //  2. NFT 铸造
+        // ============================================================
+        async function mintNFT() {
+            if (!signer) {
+                document.getElementById('nftStatus').textContent = '⚠️ Please connect wallet first';
+                document.getElementById('nftStatus').className = 'status error';
+                return;
+            }
+
+            const hash = document.getElementById('nftHash').value;
+            if (!hash || hash.length !== 64) {
+                document.getElementById('nftStatus').textContent =
+                    '⚠️ Please enter a valid 64-character SHA-256 hash';
+                document.getElementById('nftStatus').className = 'status error';
+                return;
+            }
+
+            try {
+                document.getElementById('nftOutput').textContent = '⏳ Transaction submitted...';
+                const address = await signer.getAddress();
+                const tx = await nftContract.mintNFT(address, hash);
+                document.getElementById('nftOutput').textContent =
+                    `⏳ Waiting for confirmation... Tx hash: ${tx.hash.slice(0, 16)}...`;
+
+                await tx.wait();
+                const balance = await nftContract.balanceOf(address);
+
+                document.getElementById('nftOutput').textContent =
+                    `✅ NFT minted!\nTx hash: ${tx.hash}\nYour NFT balance: ${balance.toString()}`;
+                document.getElementById('nftStatus').textContent = '🎉 Mint complete!';
+                document.getElementById('nftStatus').className = 'status success';
+
+            } catch (err) {
+                document.getElementById('nftOutput').textContent = `❌ Failed: ${err.message}`;
+                document.getElementById('nftStatus').textContent = '❌ Mint failed';
+                document.getElementById('nftStatus').className = 'status error';
+            }
+        }
+
+        // ============================================================
+        //  3. DAO 投票
+        // ============================================================
+        async function createProposal() {
+            if (!signer) {
+                document.getElementById('daoStatus').textContent = '⚠️ Please connect wallet first';
+                document.getElementById('daoStatus').className = 'status error';
+                return;
+            }
+
+            const desc = document.getElementById('proposalInput').value;
+            if (!desc) {
+                document.getElementById('daoStatus').textContent = '⚠️ Please enter a proposal description';
+                document.getElementById('daoStatus').className = 'status error';
+                return;
+            }
+
+            try {
+                document.getElementById('daoOutput').textContent = '⏳ Creating proposal...';
+                const tx = await daoContract.createProposal(desc);
+                await tx.wait();
+
+                const count = await daoContract.getProposalCount();
+                document.getElementById('daoOutput').textContent =
+                    `✅ Proposal created!\nProposal ID: ${count.toString()}\nDescription: ${desc}`;
+                document.getElementById('daoStatus').textContent = '🎉 Proposal created';
+                document.getElementById('daoStatus').className = 'status success';
+
+            } catch (err) {
+                document.getElementById('daoOutput').textContent = `❌ Failed: ${err.message}`;
+                document.getElementById('daoStatus').textContent = '❌ Create failed';
+                document.getElementById('daoStatus').className = 'status error';
+            }
+        }
+
+        async function voteOnProposal(support) {
+            if (!signer) {
+                document.getElementById('daoStatus').textContent = '⚠️ Please connect wallet first';
+                document.getElementById('daoStatus').className = 'status error';
+                return;
+            }
+
+            const id = parseInt(document.getElementById('proposalIdInput').value);
+            if (isNaN(id) || id < 0) {
+                document.getElementById('daoStatus').textContent = '⚠️ Please enter a valid proposal ID';
+                document.getElementById('daoStatus').className = 'status error';
+                return;
+            }
+
+            try {
+                const tx = await daoContract.vote(id, support);
+                await tx.wait();
+
+                const proposal = await daoContract.getProposal(id);
+                document.getElementById('daoOutput').textContent =
+                    `✅ Vote successful!\nProposal ${id}: For ${proposal.forVotes.toString()} | Against ${proposal.againstVotes.toString()}`;
+                document.getElementById('daoStatus').textContent =
+                    `✅ Voted ${support ? 'For' : 'Against'}`;
+                document.getElementById('daoStatus').className = 'status success';
+
+            } catch (err) {
+                document.getElementById('daoOutput').textContent = `❌ Failed: ${err.message}`;
+                document.getElementById('daoStatus').textContent = '❌ Vote failed';
+                document.getElementById('daoStatus').className = 'status error';
+            }
+        }
+
+        async function executeProposal() {
+            if (!signer) {
+                document.getElementById('daoStatus').textContent = '⚠️ 请先连接钱包';
+                document.getElementById('daoStatus').className = 'status error';
+                return;
+            }
+
+            const id = parseInt(document.getElementById('proposalIdInput').value);
+            if (isNaN(id) || id < 0) {
+                document.getElementById('daoStatus').textContent = '⚠️ Please enter a valid proposal ID';
+                document.getElementById('daoStatus').className = 'status error';
+                return;
+            }
+
+            try {
+                const tx = await daoContract.executeProposal(id);
+                await tx.wait();
+
+                const proposal = await daoContract.getProposal(id);
+                const state = ['Pending', 'Active', 'Executed', 'Rejected'][proposal.state];
+                document.getElementById('daoOutput').textContent =
+                    `✅ Proposal ${id} executed!\nState: ${state}`;
+                document.getElementById('daoStatus').textContent = '🎉 Execution successful';
+                document.getElementById('daoStatus').className = 'status success';
+
+            } catch (err) {
+                document.getElementById('daoOutput').textContent = `❌ Failed: ${err.message}`;
+                document.getElementById('daoStatus').textContent = '❌ Execute failed';
+                document.getElementById('daoStatus').className = 'status error';
+            }
+        }
+
+        // ============================================================
+        //  Event bindings
+        // ============================================================
+        document.getElementById('connectBtn').addEventListener('click', connectWallet);
+        document.getElementById('hashBtn').addEventListener('click', generateHash);
+        document.getElementById('mintBtn').addEventListener('click', mintNFT);
+        document.getElementById('createProposalBtn').addEventListener('click', createProposal);
+        document.getElementById('voteForBtn').addEventListener('click', () => voteOnProposal(true));
+        document.getElementById('voteAgainstBtn').addEventListener('click', () => voteOnProposal(false));
+        document.getElementById('executeBtn').addEventListener('click', executeProposal);
+
+        // Press Enter to generate hash
+        document.getElementById('hashInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') generateHash();
+        });
+
+        // Try to connect on page load
+        window.addEventListener('load', () => {
+            if (window.ethereum) {
+                connectWallet();
+            }
+        });
+
+        console.log('🔗 Blockchain Handbook Labs loaded');
+        console.log('📋 Ensure you have run: npx hardhat node and npx hardhat run scripts/deploy.js --network localhost');
+    </script>
+</body>
+</html>

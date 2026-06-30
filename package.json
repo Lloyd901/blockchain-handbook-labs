@@ -1,0 +1,17 @@
+{
+  "name": "blockchain-handbook-labs",
+  "version": "1.0.0",
+  "description": "Hands-on labs from Handbook of Blockchain Technology Development",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "ethers": "^6.8.0"
+  }
+}
